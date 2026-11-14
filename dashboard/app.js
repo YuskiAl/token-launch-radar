@@ -1,14 +1,17 @@
 // Token Radar's page: the ranked board, a filterable table, a per-protocol detail view with the
 // model's own breakdown and the farm plan, the live-token set aside, and the model stated in full.
 //
-// The page renders with no network. It reads window.RADAR (data.js, written by main.ts from the
-// same board board.json holds) and recomputes every row's implied value from the snapshot figures
-// with the formula below, so the numbers on screen are the formula's numbers, not a pasted list.
+// The page renders with no network. It reads window.RADAR (dashboard/data.js, written by main.ts
+// from the same board board.json holds) and recomputes every row's implied value from the snapshot
+// figures with the formula below, so the numbers on screen are the formula's numbers, not a pasted
+// list. The board shows the two multipliers beside each implied value, so the value's derivation
+// is visible at a glance: a row's rank is its TVL times its growth times its age, never TVL alone.
 //
-//   implied = TVL x 0.30 x (1 + growth% x w) x (0.55 + 0.45 x ln(1 + age) / ln(1096))
-//   growth% is the 7-day TVL change clamped to -70..+150; w is 0.6 when growth is up, 0.9 when
-//   it is down, so a fall costs more than the same rise gains. age is the days since the protocol
-//   was first listed; an unknown age uses the median age of the board. No name is special-cased.
+//   implied = TVL x 0.30 x (1 + growth% x w) x (0.50 + 0.50 x ln(1 + age) / ln(1096))
+//   growth% is the 7-day TVL change clamped to -70..+150; w is 0.8 when growth is up, 0.9 when
+//   it is down, so a fall costs more than the same rise gains, and a rise still moves the rank:
+//   the board is a radar, not a TVL table. age is the days since the protocol was first listed;
+//   an unknown age uses the median age of the board. No name is special-cased.
 
 (function () {
   var DATA = window.RADAR;
@@ -74,7 +77,7 @@
   }
 
   var watchlistSet = new Set();
-  // The watchlist is the floor: the builder marks every watchlist row in data.js.
+  // The watchlist is the floor: the builder marks every watchlist row in dashboard/data.js.
   DATA.rows.forEach(function (r) { if (r.on_watchlist) watchlistSet.add(r.slug); });
 
   function readHash() {
@@ -204,12 +207,13 @@
         el('td', { class: 'num', text: fmtUsd(r.tvl_usd) }),
         growth,
         el('td', { class: 'num', text: fmtAge(r.age_days, r.age_known) }),
-        el('td', { class: 'num', text: fmtUsd(r.implied_value_usd) })));
+        el('td', { class: 'num', text: fmtUsd(r.implied_value_usd) }),
+        el('td', { class: 'num', text: fmtMult(r.growth_multiplier) + ' · ' + fmtMult(r.maturity_multiplier) })));
     });
     return el('div', { class: 'panel' },
       el('div', { class: 'tablewrap' },
         el('table', null,
-          el('caption', { text: 'Ranked by implied value, highest first. Click a row for its model breakdown and farm plan.' }),
+          el('caption', { text: 'Ranked by implied value, highest first. The Model column shows the growth and maturity multipliers behind each value. Click a row for its model breakdown and farm plan.' }),
           el('thead', null, el('tr', null,
             sortHeader('implied', 'Rank'),
             sortHeader('name', 'Protocol'),
@@ -218,7 +222,8 @@
             sortHeader('tvl', 'TVL'),
             sortHeader('growth', '7d'),
             sortHeader('age', 'Age'),
-            sortHeader('implied', 'Implied value'))),
+            sortHeader('implied', 'Implied value'),
+            el('th', { class: 'num', text: 'Model' }))),
           body)));
   }
 
